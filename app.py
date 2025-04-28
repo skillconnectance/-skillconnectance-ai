@@ -27,34 +27,32 @@ if trainers_df is not None:
     st.dataframe(trainers_df)
 
     # User Input Section
-    st.subheader("Find Your Trainer:")
+st.subheader("Find Your Trainer:")
 
-    user_skills = st.text_input("Enter skills you want to learn (comma-separated)", placeholder="e.g., Python, Machine Learning, Data Analysis")
+user_skills = st.text_input("Enter skills you want to learn (comma-separated)", placeholder="e.g., Python, Machine Learning, Data Analysis")
 
-    # Button to trigger matching
-    if st.button("Find Matching Trainers"):
-        if user_skills:
-            user_skills_list = [skill.strip().lower() for skill in user_skills.split(",")]
+# Button to trigger matching
+if st.button("Find Matching Trainers"):
+    if user_skills:
+        user_skills_list = [skill.strip().lower() for skill in user_skills.split(",")]
 
-            # Find Matching Trainers
-            matching_trainers = []
+        # Find Matching Trainers
+        matching_trainers = []
 
-            for index, row in trainers_df.iterrows():
-                trainer_skills = [skill.strip().lower() for skill in row['Skills'].split(",")]
-                matches = set(user_skills_list) & set(trainer_skills)
-                if matches:
-                    matching_trainers.append((row['Name'], len(matches), ", ".join(matches), row['Location']))
+        for index, row in trainers_df.iterrows():
+            trainer_skills = [skill.strip().lower() for skill in row['Skills'].split(",")]
+            matches = set(user_skills_list) & set(trainer_skills)
+            if matches:
+                matching_trainers.append((row['Trainer Name'], len(matches), ", ".join(matches), row['Location']))
 
-            if matching_trainers:
-                matching_trainers.sort(key=lambda x: x[1], reverse=True)
+        if matching_trainers:
+            matching_trainers.sort(key=lambda x: x[1], reverse=True)
 
-                st.subheader("Top Matching Trainers:")
-                for trainer in matching_trainers[:5]:
-                    st.markdown(f"**Name:** {trainer[0]}  \n**Matching Skills:** {trainer[2]}  \n**Location:** {trainer[3]}")
-                    st.markdown("---")
-            else:
-                st.warning("No matching trainers found. Please try different skills.")
+            st.subheader("Top Matching Trainers:")
+            for trainer in matching_trainers[:5]:
+                st.markdown(f"**Name:** {trainer[0]}  \n**Matching Skills:** {trainer[2]}  \n**Location:** {trainer[3]}")
+                st.markdown("---")
         else:
-            st.warning("Please enter some skills to search!")
-else:
-    st.warning("Trainer data not available. Please upload a valid CSV file.")
+            st.warning("No matching trainers found. Please try different skills.")
+    else:
+        st.warning("Please enter some skills to search!")
