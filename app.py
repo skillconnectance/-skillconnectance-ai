@@ -45,14 +45,21 @@ if st.button("Find Matching Trainers"):
             if matches:
                 matching_trainers.append((row['Trainer Name'], len(matches), ", ".join(matches), row['Location']))
 
-        if matching_trainers:
-            matching_trainers.sort(key=lambda x: x[1], reverse=True)
+        # After matching_trainers is built
 
-            st.subheader("Top Matching Trainers:")
-            for trainer in matching_trainers[:5]:
-                st.markdown(f"**Name:** {trainer[0]}  \n**Matching Skills:** {trainer[2]}  \n**Location:** {trainer[3]}")
-                st.markdown("---")
-        else:
-            st.warning("No matching trainers found. Please try different skills.")
-    else:
-        st.warning("Please enter some skills to search!")
+if matching_trainers:
+    matching_trainers.sort(key=lambda x: x[1], reverse=True)
+
+    st.subheader("Top Matching Trainers:")
+    for trainer in matching_trainers[:5]:
+        trainer_data = trainers_df[trainers_df['Trainer Name'] == trainer[0]].iloc[0]
+        
+        st.markdown(f"""
+        **👤 Name:** {trainer_data['Trainer Name']}  
+        **📍 Location:** {trainer_data['Location']}  
+        **🧠 Matching Skills:** {trainer[2]}  
+        **📅 Experience:** {trainer_data['Years of Experience']} years  
+        **🎓 Certifications:** {trainer_data['Certifications']}  
+        **🏢 Industry:** {trainer_data['Industry']}
+        """)
+        st.markdown("---")
