@@ -4,7 +4,7 @@ import pandas as pd
 # Load your dataset
 @st.cache_data
 def load_data():
-    return pd.read_csv("trainers.csv")  # Make sure this file is in your repo
+    return pd.read_csv("mock_trainer_dataset_realistic.csv")  # Make sure this file is in your repo
 
 df = load_data()
 
