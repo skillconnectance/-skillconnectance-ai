@@ -1,78 +1,73 @@
-# app.py
 import streamlit as st
 import pandas as pd
-from urllib.parse import parse_qs
+import difflib
+from typing import List
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from streamlit.web import bootstrap
 
-# Page config
-st.set_page_config(page_title="SkillConnectance - AI Engine", page_icon=":rocket:")
+# Load trainer data
+df = pd.read_csv("mock_trainer_dataset_realistic.csv")
 
-# Function to get skills from URL
-def get_skills_from_url():
-    query_params = st.experimental_get_query_params()
-    skills_param = query_params.get('skills', [])
-    if skills_param:
-        return skills_param[0]  # Return the first (and usually only) skills string
-    return ""
+# Normalize column names
+df.columns = df.columns.str.strip()
 
-# Load Trainer Dataset
-@st.cache_data
-def load_data():
-    try:
-        data = pd.read_csv('mock_trainer_dataset_realistic.csv')
-        return data
-    except Exception as e:
-        st.error(f"Error loading trainer dataset: {e}")
-        return None
+# FastAPI instance
+api = FastAPI()
 
-trainers_df = load_data()
+def get_top_matches(user_skills: str, top_n: int = 5):
+    user_skills_list = [skill.strip().lower() for skill in user_skills.split(",")]
+    matching_trainers = []
 
-# Show Page
-st.title("SkillConnectance - AI Engine 🚀")
-st.write("Welcome to SkillConnectance AI Recommender System!")
+    for _, row in df.iterrows():
+        trainer_skills = [skill.strip().lower() for skill in str(row['Skills']).split(",")]
+        matches = list(set(user_skills_list) & set(trainer_skills))
+        if matches:
+            matching_trainers.append({
+                "name": row['Trainer Name'],
+                "matching_skills": matches,
+                "location": row['Location'],
+                "match_score": len(matches)
+            })
 
-# Auto-populate skills if coming from URL
-url_skills = get_skills_from_url()
+    # Sort by match score (descending)
+    matching_trainers.sort(key=lambda x: x['match_score'], reverse=True)
 
-# User Input Section
-st.subheader("Find Your Trainer:")
+    return matching_trainers[:top_n]
 
-user_skills = st.text_input(
-    "Enter skills you want to learn (comma-separated)",
-    value=url_skills,
-    placeholder="e.g., Python, Machine Learning, Data Analysis"
-)
+# Streamlit UI for manual testing
+st.title("🔍 SkillConnect Trainer Recommender")
 
-# Button to trigger matching
-if st.button("Find Matching Trainers") or url_skills:
-    if user_skills:
-        user_skills_list = [skill.strip().lower() for skill in user_skills.split(",")]
-
-        # Find Matching Trainers
-        matching_trainers = []
-
-        for index, row in trainers_df.iterrows():
-            trainer_skills = [skill.strip().lower() for skill in row['Skills'].split(",")]
-            matches = set(user_skills_list) & set(trainer_skills)
-            if matches:
-                matching_trainers.append((row['Trainer Name'], len(matches), ", ".join(matches), row['Location']))
-
-        if matching_trainers:
-            matching_trainers.sort(key=lambda x: x[1], reverse=True)
-
-            st.subheader("Top Matching Trainers:")
-            for trainer in matching_trainers[:5]:
-                trainer_data = trainers_df[trainers_df['Trainer Name'] == trainer[0]].iloc[0]
-                
-                st.markdown(f"""
-                **👤 Name:** {trainer_data['Trainer Name']}  
-                **📍 Location:** {trainer_data['Location']}  
-                **🧠 Matching Skills:** {trainer[2]}  
-                **📅 Experience:** {trainer_data['Years of Experience']} years  
-                **🎓 Certifications:** {trainer_data['Certifications']}  
-                **🏢 Industry:** {trainer_data['Industry']}
-                """)
+user_input = st.text_input("Enter skills (comma-separated):")
+if st.button("Find Trainers"):
+    if user_input:
+        results = get_top_matches(user_input)
+        if results:
+            for trainer in results:
+                st.markdown(f"**Name:** {trainer['name']}")
+                st.markdown(f"**Matching Skills:** {', '.join(trainer['matching_skills'])}")
+                st.markdown(f"**Location:** {trainer['location']}")
                 st.markdown("---")
         else:
-            st.warning("No matching trainers found. Please try different skills.")
+            st.warning("No matching trainers found.")
     else:
-        st.warning("Please enter some skills to search!")
+        st.warning("Please enter at least one skill.")
+
+# API route for webhook integration
+@api.post("/recommend")
+async def recommend(request: Request):
+    data = await request.json()
+    user_skills = data.get("skills", "")
+    if not user_skills:
+        return JSONResponse(content={"error": "No skills provided"}, status_code=400)
+
+    top_matches = get_top_matches(user_skills)
+    return JSONResponse(content={"recommendations": top_matches})
+
+# Run FastAPI inside Streamlit (for local dev, not needed on Streamlit Cloud)
+def run():
+    import uvicorn
+    uvicorn.run(api, host="0.0.0.0", port=8501)
+
+# Uncomment the line below to run API only (for local testing)
+# run()
