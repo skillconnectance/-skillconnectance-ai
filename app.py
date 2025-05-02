@@ -53,7 +53,7 @@ if skill_input:
 
                 # Generate BuddyPress profile URL dynamically
                 slug = make_slug(row['Trainer Name'])
-                profile_url = f"https://yoursite.com/members/{slug}/"
+                profile_url = f"https://skillconnectance.com/members/{slug}/"
                 
                 # Link to BuddyPress profile
                 st.markdown(f"[🔗 View Full Profile]({profile_url})", unsafe_allow_html=True)
