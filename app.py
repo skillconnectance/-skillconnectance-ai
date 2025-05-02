@@ -5,7 +5,7 @@ import pandas as pd
 @st.cache_data
 def load_data():
     try:
-        df = pd.read_csv("trainers.csv")
+        df = pd.read_csv("mock_trainer_dataset_realistic.csv")
         return df
     except Exception as e:
         st.error(f"Failed to load dataset: {e}")
