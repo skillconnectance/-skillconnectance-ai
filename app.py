@@ -1,32 +1,53 @@
-import pandas as pd
 import streamlit as st
+import pandas as pd
+from urllib.parse import unquote_plus
 
-# Load the trainers CSV
-trainers_df = pd.read_csv('mock_trainer_dataset_realistic.csv')
+# Page config
+st.set_page_config(page_title="Trainer Recommendations", layout="centered")
 
-# Convert 'Skills' column to lowercase for case-insensitive matching
-trainers_df['Skills'] = trainers_df['Skills'].str.lower()
+# Load trainer data
+df = pd.read_csv("mock_trainer_dataset_realistic.csv")
+df.columns = df.columns.str.strip()
 
-# Streamlit user input for skills
-query_params = st.experimental_get_query_params()
+st.title("🎯 SkillConnectance – Trainer Recommendations")
 
-# Check if the 'skills' parameter is in the query params
-if 'skills' in query_params:
-    raw_skills_input = query_params['skills'][0]
-    skills = [skill.strip().lower() for skill in raw_skills_input.split(',')]
-    st.write(f"✅ Your entered skills: {', '.join(skills)}")
+# Read & decode skills from URL (?skills=python,excel)
+raw_skills = st.query_params.get("skills", [""])[0]
+decoded_skills = unquote_plus(raw_skills)
+user_skills = [s.strip().lower() for s in decoded_skills.split(",") if s.strip()]
 
-    # Filter the dataframe to find trainers matching any of the entered skills
-    filtered_trainers = trainers_df[trainers_df['Skills'].apply(
-        lambda x: any(skill in x for skill in skills))]
+if not user_skills:
+    st.warning("No skills found. Please submit the form or add `?skills=python,excel` to the URL.")
+    st.stop()
 
-    if not filtered_trainers.empty:
-        st.write("📝 Matching trainers found:")
-        st.dataframe(filtered_trainers[['Trainer Name', 'Skills', 'Location', 'Years of Experience', 'Certifications', 'Industry']])
-        for index, row in filtered_trainers.iterrows():
-            # Assuming you have the BuddyBoss profile URL in the CSV (manually add in the future)
-            st.markdown(f"[View Profile]({row['BuddyBoss Profile URL']})")
-    else:
-        st.write("❌ No matching trainers found.")
+st.success(f"✅ Your entered skills: {', '.join(user_skills)}")
+
+# Prepare trainer skills for matching
+df["Skill List"] = (
+    df["Skills"]
+    .fillna("")
+    .astype(str)
+    .str.lower()
+    .apply(lambda x: [s.strip() for s in x.split(",") if s.strip()])
+)
+
+# Filter trainers by any matching skill
+df["Matches"] = df["Skill List"].apply(lambda skills: bool(set(user_skills) & set(skills)))
+matches = df[df["Matches"]]
+
+if matches.empty:
+    st.error("❌ No matching trainers found.")
 else:
-    st.write("❌ Please submit the form or add '?skills=python,excel' to the URL.")
+    st.subheader(f"🎓 Found {len(matches)} trainer(s):")
+    for _, row in matches.iterrows():
+        slug = row["Trainer Name"].strip().lower().replace(" ", "-").replace(".", "")
+        profile_url = f"https://yourdomain.com/members/{slug}/"
+        st.markdown(f"""
+        **👤 {row['Trainer Name']}**  
+        📍 {row['Location']}  
+        🛠️ Skills: {', '.join(row['Skill List'])}  
+        🏢 Industry: {row['Industry']}  
+        ⏳ Experience: {row['Years of Experience']} years  
+        🎓 Certifications: {row['Certifications']}  
+        [🔗 View Full Profile]({profile_url})  
+        """, unsafe_allow_html=True)
