@@ -1,4 +1,7 @@
 import streamlit as st
+
+st.write("👀 Query Params:", st.query_params)
+
 import pandas as pd
 
 # Load dataset
