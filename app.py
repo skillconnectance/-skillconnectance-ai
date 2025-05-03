@@ -1,68 +1,57 @@
 import streamlit as st
-
-query_params = st.query_params
-st.write("🔍 Debug query_params:", query_params)
-
-skills_raw = query_params.get("skills")
-st.write("🪵 Raw skills input from URL:", skills_raw)
-
 import pandas as pd
 
-st.set_page_config(page_title="Trainer Recommendations", layout="centered")
+# Load trainer data
+df = pd.read_csv("mock_trainer_dataset_realistic.csv")
 
-# Load dataset
-@st.cache_data
-def load_data():
-    return pd.read_csv("mock_trainer_dataset_realistic.csv")
+# Page config
+st.set_page_config(page_title="Trainer Recommender", layout="wide")
+st.title("🎯 SkillConnectance: Trainer Recommendations")
 
-df = load_data()
+# Get skills from query params
+query_params = st.query_params
+raw_skills_input = query_params.get("skills", "")
 
-st.title("🎯 SkillConnectance – Trainer Recommendations")
+st.markdown(f"🔍 **Debug query_params:**\n\n```json\n{query_params}\n```")
+st.markdown(f"🪵 **Raw skills input from URL:** `{raw_skills_input}`")
 
-# Get query param from URL: ?skills=python,data analytics
-raw_skills = st.query_params.get("skills")
-if raw_skills:
-    skills_input = raw_skills[0]
-    user_skills = [s.strip().lower() for s in skills_input.split(",") if s.strip()]
-else:
-    user_skills = []
-
-if not user_skills:
-    st.warning("No skills found. Please submit the form or add `?skills=python,data analytics` to the URL.")
+if not raw_skills_input:
+    st.warning("No skills found. Please submit the form or add '?skills=python,excel' to the URL.")
     st.stop()
 
-st.success(f"✅ Your entered skills: {set(user_skills)}")
+# Normalize user-entered skills
+user_skills = [s.strip().lower() for s in raw_skills_input.split(",") if s.strip()]
+st.success(f"✅ Your entered skills: `{', '.join(user_skills)}`")
 
-# Preprocess trainer data
-df["Skills"] = df["Skills"].astype(str).str.lower()
-df["Skill List"] = df["Skills"].apply(lambda x: [s.strip() for s in x.split(",") if s.strip()])
+# Ensure trainer 'Skills' column is lowercase string
+df["Skills"] = df["Skills"].fillna("").astype(str).str.lower()
 
-# Match trainers
-def matches(trainer_skills, user_skills):
-    return any(skill in trainer_skills for skill in user_skills)
+# Score trainers based on skill overlap
+def score_trainer(skills_text):
+    trainer_skills = [s.strip() for s in skills_text.split(",")]
+    return len(set(user_skills) & set(trainer_skills))
 
-df["Match"] = df["Skill List"].apply(lambda skills: matches(skills, user_skills))
-matching_trainers = df[df["Match"]]
+df["Score"] = df["Skills"].apply(score_trainer)
+df_filtered = df[df["Score"] > 0].sort_values(by="Score", ascending=False)
 
-if matching_trainers.empty:
+if df_filtered.empty:
     st.error("❌ No matching trainers found.")
 else:
-    st.subheader(f"✅ Found {len(matching_trainers)} matching trainer(s):")
-    for _, row in matching_trainers.iterrows():
-        st.markdown(f"""
-        **👤 Trainer Name:** {row['Trainer Name']}  
-        **📍 Location:** {row['Location']}  
-        **📚 Skills:** {row['Skills']}  
-        **🏢 Industry:** {row['Industry']}  
-        **🧪 Experience:** {row['Years of Experience']} years  
-        **🎓 Certifications:** {row['Certifications']}  
-        """, unsafe_allow_html=True)
-
-        # Add a profile button if URL exists (optional column)
-        profile_url = row.get("BuddyBoss Profile URL", None)
-        if pd.notna(profile_url) and isinstance(profile_url, str) and profile_url.startswith("http"):
-            st.markdown(f"[👉 View Full Profile]({profile_url})", unsafe_allow_html=True)
-        else:
-            st.markdown("*Profile link not available.*")
-
-        st.markdown("---")
+    st.subheader("🎓 Recommended Trainers for You:")
+    for _, row in df_filtered.iterrows():
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown(f"""
+            **👤 Name:** {row['Trainer Name']}  
+            **📍 Location:** {row['Location']}  
+            **💼 Industry:** {row['Industry']}  
+            **🧠 Skills:** {row['Skills']}  
+            **🎖️ Experience:** {row['Years of Experience']} years  
+            **📜 Certifications:** {row['Certifications']}
+            """)
+        with col2:
+            # BuddyBoss profile URL logic
+            if 'BuddyBoss URL' in row and pd.notna(row['BuddyBoss URL']):
+                st.link_button("🔗 View Profile", row['BuddyBoss URL'])
+            else:
+                st.button("Profile Coming Soon", disabled=True)
