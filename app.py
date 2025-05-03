@@ -1,14 +1,10 @@
 import streamlit as st
-import pandas as pd
+import requests
 from urllib.parse import unquote_plus
 
 # — Page config
 st.set_page_config(page_title="Trainer Recommendations", layout="centered")
 st.title("🎯 SkillConnectance – Trainer Recommendations")
-
-# — Load your trainer dataset
-df = pd.read_csv("mock_trainer_dataset_realistic.csv")
-df.columns = df.columns.str.strip()  # trim stray spaces
 
 # — Parse the 'skills' query param robustly
 param = st.query_params.get("skills")
@@ -36,37 +32,34 @@ if not user_skills:
 
 st.success(f"✅ Your entered skills: {', '.join(user_skills)}")
 
-# — Prepare trainer skills for matching
-df["Skill List"] = (
-    df["Skills"]
-      .fillna("")
-      .astype(str)
-      .str.lower()
-      .apply(lambda x: [s.strip() for s in x.split(",") if s.strip()])
-)
+# — Prepare API URL with query parameters for the backend
+api_url = f"http://127.0.0.1:8000/recommend_trainer?skills={','.join(user_skills)}"
 
-# — Filter trainers: any overlap
-def has_overlap(tr_skills, usr_skills):
-    return bool(set(tr_skills) & set(usr_skills))
+# Call the API to get trainer recommendations
+try:
+    response = requests.get(api_url)
+    if response.status_code == 200:
+        trainers = response.json()['recommended_trainers']
+        
+        if not trainers:
+            st.error("❌ No matching trainers found for those skills.")
+        else:
+            st.subheader(f"🎓 Found {len(trainers)} trainer(s):")
+            for trainer in trainers:
+                trainer_name = trainer['name']
+                matched_skills = ', '.join(trainer['matched_skills'])
 
-df["Match"] = df["Skill List"].apply(lambda skills: has_overlap(skills, user_skills))
-matches = df[df["Match"]]
+                # Example URL, assuming a generic profile structure
+                slug = trainer_name.strip().lower().replace(" ", "-").replace(".", "")
+                profile_url = f"https://yourdomain.com/members/{slug}/"
 
-# — Show results
-if matches.empty:
-    st.error("❌ No matching trainers found for those skills.")
-else:
-    st.subheader(f"🎓 Found {len(matches)} trainer(s):")
-    for _, row in matches.iterrows():
-        slug = row["Trainer Name"].strip().lower().replace(" ", "-").replace(".", "")
-        profile_url = f"https://yourdomain.com/members/{slug}/"
-
-        st.markdown(f"""
-        **👤 Name:** {row['Trainer Name']}  
-        **📍 Location:** {row['Location']}  
-        **🛠️ Skills:** {', '.join(row['Skill List'])}  
-        **🏢 Industry:** {row['Industry']}  
-        **⏳ Experience:** {row['Years of Experience']} years  
-        **🎓 Certifications:** {row['Certifications']}  
-        [🔗 View Full Profile]({profile_url})
-        """, unsafe_allow_html=True)
+                # Display trainer info
+                st.markdown(f"""
+                **👤 Name:** {trainer_name}  
+                **🛠️ Matched Skills:** {matched_skills}  
+                [🔗 View Full Profile]({profile_url})
+                """, unsafe_allow_html=True)
+    else:
+        st.error(f"Error: Unable to fetch data from the API. Status code {response.status_code}")
+except Exception as e:
+    st.error(f"Error: {e}")
