@@ -1,4 +1,11 @@
 import streamlit as st
+
+query_params = st.query_params
+st.write("🔍 Debug query_params:", query_params)
+
+skills_raw = query_params.get("skills")
+st.write("🪵 Raw skills input from URL:", skills_raw)
+
 import pandas as pd
 
 st.set_page_config(page_title="Trainer Recommendations", layout="centered")
